@@ -1,0 +1,16 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Scratch scripts and temporary files
+scratch/
+.tempmediaStorage/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
