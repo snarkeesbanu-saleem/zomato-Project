@@ -1,10 +1,35 @@
 # Zomato Restaurant Clustering & Sentiment Analysis Capstone Project
 
+<p align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/b/bd/Zomato_Logo.svg" alt="Zomato Logo" width="250"/>
+</p>
+
 This repository contains the complete implementation of the Zomato Restaurant Clustering and Sentiment Analysis Capstone Project. 
 
 The project solves two primary business objectives using the Hyderabad restaurant datasets:
 1. **Supervised Sentiment Analysis**: Classifying user text reviews into Positive and Negative sentiments to monitor brand health and identify service issues.
 2. **Unsupervised Restaurant Clustering**: Grouping restaurants based on metadata and review statistics to tailor customer segment targeting.
+
+---
+
+## 🌐 Live Interactive App
+You can interact with our live Machine Learning and Analytics dashboard here:
+👉 **[Launch Live Zomato Analytics Portal](https://zomato-project-j6kbbpv8kehpy2hkg4sjjc.streamlit.app/)**
+
+---
+
+## 🛠️ Technologies & Tools Used
+
+<p align="left">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit"/>
+  <img src="https://img.shields.io/badge/scikit_learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white" alt="Scikit-Learn"/>
+  <img src="https://img.shields.io/badge/XGBoost-1E88E5?style=for-the-badge" alt="XGBoost"/>
+  <img src="https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white" alt="Pandas"/>
+  <img src="https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white" alt="NumPy"/>
+  <img src="https://img.shields.io/badge/Plotly-3F4F75?style=for-the-badge&logo=plotly&logoColor=white" alt="Plotly"/>
+  <img src="https://img.shields.io/badge/NLTK-8C52FF?style=for-the-badge" alt="NLTK"/>
+</p>
 
 ---
 
@@ -54,6 +79,8 @@ The project integrates two core datasets:
 │   ├── final_sentiment_model.pkl
 │   ├── final_tfidf_vectorizer.pkl
 │   └── final_kmeans_model.pkl
+├── streamlit_app.py                          # Streamlit UI Source Code
+├── requirements.txt                          # Streamlit Dependencies
 └── README.md                                 # Project documentation
 ```
 
