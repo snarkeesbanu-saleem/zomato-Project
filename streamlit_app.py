@@ -48,7 +48,7 @@ st.markdown("""
         color: #E23744;
     }
 </style>
-""", unsafe_allow_dict=True, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ----------------- Load Assets (Cached) -----------------
 @st.cache_resource
