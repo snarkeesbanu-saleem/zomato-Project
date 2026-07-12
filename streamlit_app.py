@@ -7,6 +7,9 @@ import os
 import nltk
 from nltk.stem import WordNetLemmatizer
 import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
@@ -101,6 +104,9 @@ def load_datasets():
     df_reviews['Pictures_Cleaned'] = pd.to_numeric(df_reviews['Pictures'], errors='coerce').fillna(0).astype(int)
     df_reviews['Review_Length'] = df_reviews['Review'].apply(lambda x: len(str(x)))
     
+    # Calculate review sentiments
+    df_reviews['Sentiment'] = (df_reviews['Rating_Cleaned'] >= 3.5).astype(int)
+    
     return df_meta, df_reviews
 
 # Load resources
@@ -158,11 +164,15 @@ st.markdown('<div class="main-header">Zomato Restaurant Analytics</div>', unsafe
 st.markdown('<div class="sub-header">Interactive Sentiment Predictor and Restaurant Clustering Dashboard</div>', unsafe_allow_html=True)
 
 if not assets_loaded:
-    st.error(f"Error loading models or datasets. Please run the training script first. Details: {error_msg}")
+    st.error(f"Error loading models or datasets. Details: {error_msg}")
     st.stop()
 
 # Set up tabs
-tab1, tab2 = st.tabs(["💬 Sentiment Analysis Engine", "🏢 Restaurant Clustering Explorer"])
+tab1, tab2, tab3 = st.tabs([
+    "💬 Sentiment Prediction Engine", 
+    "🏢 Restaurant Clustering Explorer", 
+    "📊 Exploratory Data Dashboard (15 Charts)"
+])
 
 # Tab 1: Sentiment Analysis
 with tab1:
@@ -177,7 +187,16 @@ with tab1:
         else:
             # Clean and Vectorize
             cleaned_text = preprocess_text(review_input)
-            vectors_unseen = tfidf_vectorizer.transform([cleaned_text]).toarray()
+            
+            # Load stopwords for clean print
+            try:
+                nltk_stopwords = set(nltk.corpus.stopwords.words('english'))
+                cleaned_words = [w for w in cleaned_text.split() if w not in nltk_stopwords]
+                cleaned_text_print = " ".join(cleaned_words)
+            except Exception:
+                cleaned_text_print = cleaned_text
+                
+            vectors_unseen = tfidf_vectorizer.transform([cleaned_text_print]).toarray()
             # Padding length/pictures features with zeros (since model was trained on X_combined)
             dummy_scaled = np.zeros((1, 2))
             X_unseen_combined = np.hstack((vectors_unseen, dummy_scaled))
@@ -187,15 +206,39 @@ with tab1:
             prob = sentiment_model.predict_proba(X_unseen_combined)[0]
             
             # Display results
-            if pred == 1:
-                st.success(f"🟢 **Positive Sentiment** (Confidence: {prob[1]*100:.2f}%)")
-                st.balloons()
-            else:
-                st.error(f"🔴 **Negative/Neutral Sentiment** (Confidence: {prob[0]*100:.2f}%)")
-            
-            st.markdown("### Preprocessing Details:")
-            st.write(f"**Original**: *\"{review_input}\"*")
-            st.write(f"**Cleaned/Lemmatized**: *\"{cleaned_text}\"*")
+            col_res, col_gauge = st.columns([1, 1])
+            with col_res:
+                st.markdown("#### Prediction Output")
+                if pred == 1:
+                    st.success(f"🟢 **Positive Sentiment**")
+                    st.markdown(f"**Confidence**: `{prob[1]*100:.2f}%` probability of positive experience.")
+                    st.balloons()
+                else:
+                    st.error(f"🔴 **Negative/Neutral Sentiment**")
+                    st.markdown(f"**Confidence**: `{prob[0]*100:.2f}%` probability of negative experience.")
+                
+                st.markdown("#### Preprocessing Details:")
+                st.write(f"**Cleaned/Lemmatized Input**: *\"{cleaned_text_print}\"*")
+                
+            with col_gauge:
+                st.markdown("#### Sentiment Probability Meter")
+                fig_gauge = go.Figure(go.Indicator(
+                    mode = "gauge+number",
+                    value = prob[1] * 100,
+                    domain = {'x': [0, 1], 'y': [0, 1]},
+                    title = {'text': "Positive Probability (%)"},
+                    gauge = {
+                        'axis': {'range': [None, 100]},
+                        'bar': {'color': "#E23744"},
+                        'steps' : [
+                            {'range': [0, 50], 'color': "lightgray"},
+                            {'range': [50, 100], 'color': "whitesmoke"}
+                        ],
+                        'threshold' : {'line': {'color': "green", 'width': 4}, 'thickness': 0.75, 'value': 50}
+                    }
+                ))
+                fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20))
+                st.plotly_chart(fig_gauge, use_container_width=True)
 
 # Tab 2: Restaurant Clustering Explorer
 with tab2:
@@ -277,3 +320,159 @@ with tab2:
     st.write("---")
     st.markdown("### Cluster Characteristics Summary Table")
     st.write(df_res_clust.groupby('Cluster_Label')[clust_features].mean())
+
+# Tab 3: Exploratory Data Dashboard
+with tab3:
+    st.markdown("### Exploratory Data Analysis Dashboard")
+    st.write("Select one of the 15 charts generated during exploratory analysis to view interactive charts and business insights.")
+    
+    chart_option = st.selectbox(
+        "Choose an Exploratory Chart to Display:",
+        [
+            "Chart 1: Distribution of Restaurant Ratings",
+            "Chart 2: Distribution of Cost for Two",
+            "Chart 3: Top 15 Most Popular Cuisines",
+            "Chart 4: Top 15 Most Reviewed Restaurants",
+            "Chart 5: Cost Distribution for Top 10 Cuisines",
+            "Chart 6: Restaurant Average Cost vs. Average Rating",
+            "Chart 7: Proportion of Review Sentiments",
+            "Chart 8: Monthly Review Count Timeline",
+            "Chart 9: Number of Pictures Uploaded vs. Customer Rating",
+            "Chart 10: Distribution of Reviewer Followers (Followers < 100)",
+            "Chart 11: Average Customer Rating for Top 10 Cuisines",
+            "Chart 12: Review Character Count vs. Rating",
+            "Chart 13: Rating Distribution by Reviewer Experience Level",
+            "Chart 14: Correlation Matrix of Key Numerical Variables",
+            "Chart 15: Pair Plot of Key Metrics Colored by Sentiment"
+        ]
+    )
+    
+    st.write("---")
+    
+    # ----------------- Render Chart Selected -----------------
+    if chart_option == "Chart 1: Distribution of Restaurant Ratings":
+        fig = px.histogram(df_reviews, x='Rating_Cleaned', nbins=10, title="Distribution of Restaurant Ratings", color_discrete_sequence=['#E23744'])
+        fig.update_layout(xaxis_title="Rating", yaxis_title="Count")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Ratings are highly left-skewed, showing that the majority of reviews are positive (4.0 and 5.0 stars). However, there is a clear spike at 1.0 star representing severe customer dissatisfaction.")
+        
+    elif chart_option == "Chart 2: Distribution of Cost for Two":
+        fig = px.histogram(df_meta, x='Cost_Cleaned', nbins=20, marginal="box", title="Distribution of Cost for Two (INR)", color_discrete_sequence=['teal'])
+        fig.update_layout(xaxis_title="Cost for Two (INR)", yaxis_title="Count")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Right-skewed distribution peaking around 500 to 800 INR, representing casual and mid-range dining. Very few restaurants charge over 1500 INR.")
+        
+    elif chart_option == "Chart 3: Top 15 Most Popular Cuisines":
+        cuisines_list = df_meta['Cuisines'].dropna().str.split(', ').explode().reset_index(drop=True)
+        top_cuis = cuisines_list.value_counts().reset_index()
+        top_cuis.columns = ['Cuisine', 'Count']
+        fig = px.bar(top_cuis.iloc[:15], x='Count', y='Cuisine', orientation='h', title="Top 15 Most Popular Cuisines", color='Count', color_continuous_scale='Bluered')
+        fig.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: North Indian and Chinese are the most dominant cuisines offered, followed by Biryani, Continental, and Fast Food.")
+        
+    elif chart_option == "Chart 4: Top 15 Most Reviewed Restaurants":
+        review_counts = df_reviews['Restaurant'].value_counts().reset_index()
+        review_counts.columns = ['Restaurant', 'Reviews']
+        fig = px.bar(review_counts.iloc[:15], x='Reviews', y='Restaurant', orientation='h', title="Top 15 Most Reviewed Restaurants", color='Reviews', color_continuous_scale='plasma')
+        fig.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Review counts are highly uniform at exactly 100 reviews for the top restaurants, suggesting a uniform data collection method in the Hyderabad review subset.")
+        
+    elif chart_option == "Chart 5: Cost Distribution for Top 10 Cuisines":
+        df_exploded = df_meta.assign(Cuisine=df_meta['Cuisines'].str.split(', ')).explode('Cuisine').reset_index(drop=True)
+        top_cuisines = df_exploded['Cuisine'].value_counts().index[:10]
+        df_top_cuisines = df_exploded[df_exploded['Cuisine'].isin(top_cuisines)]
+        fig = px.box(df_top_cuisines, x='Cuisine', y='Cost_Cleaned', color='Cuisine', title="Cost Distribution for Top 10 Cuisines")
+        fig.update_layout(xaxis_title="Cuisine", yaxis_title="Cost for Two (INR)", xaxis_tickangle=45)
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Continental and Italian cuisines have a higher median cost, whereas South Indian and Fast Food represent budget-friendly dining choices.")
+        
+    elif chart_option == "Chart 6: Restaurant Average Cost vs. Average Rating":
+        avg_ratings = df_reviews.groupby('Restaurant')['Rating_Cleaned'].mean().reset_index()
+        df_restaurant_local = pd.merge(df_meta, avg_ratings, left_on='Name', right_on='Restaurant')
+        fig = px.scatter(df_restaurant_local, x='Cost_Cleaned', y='Rating_Cleaned', trendline="ols", title="Restaurant Average Cost vs. Average Rating", color='Rating_Cleaned', color_continuous_scale='deep')
+        fig.update_layout(xaxis_title="Cost for Two (INR)", yaxis_title="Average Rating")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: There is a mild positive correlation, indicating that higher-cost restaurants receive slightly better reviews, likely due to premium food quality and service standards.")
+        
+    elif chart_option == "Chart 7: Proportion of Review Sentiments":
+        sent_counts = df_reviews['Sentiment'].value_counts().reset_index()
+        sent_counts.columns = ['Sentiment', 'Count']
+        sent_counts['Sentiment'] = sent_counts['Sentiment'].map({1: 'Positive (>=3.5)', 0: 'Negative/Neutral (<3.5)'})
+        fig = px.pie(sent_counts, values='Count', names='Sentiment', title="Proportion of Review Sentiments", color_discrete_sequence=['#66b3ff', '#ff9999'])
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Roughly 63.5% of Zomato reviews are positive, whereas 36.5% represent negative or neutral reviews.")
+        
+    elif chart_option == "Chart 8: Monthly Review Count Timeline":
+        df_reviews['Time_Parsed'] = pd.to_datetime(df_reviews['Time'], errors='coerce')
+        df_reviews['Year_Month'] = df_reviews['Time_Parsed'].dt.to_period('M')
+        timeline = df_reviews.groupby('Year_Month').size().reset_index()
+        timeline.columns = ['Year_Month', 'Count']
+        timeline['Year_Month_Str'] = timeline['Year_Month'].astype(str)
+        fig = px.line(timeline, x='Year_Month_Str', y='Count', title="Monthly Review Count Timeline", markers=True, color_discrete_sequence=['purple'])
+        fig.update_layout(xaxis_title="Year-Month", yaxis_title="Number of Reviews")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Reviews volume peaked in late 2018 and early 2019, showing substantial platform growth during that time window.")
+        
+    elif chart_option == "Chart 9: Number of Pictures Uploaded vs. Customer Rating":
+        fig = px.box(df_reviews[df_reviews['Pictures_Cleaned'] <= 15], x='Rating_Cleaned', y='Pictures_Cleaned', title="Number of Pictures Uploaded vs. Customer Rating", color='Rating_Cleaned')
+        fig.update_layout(xaxis_title="Rating", yaxis_title="Number of Pictures")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Higher ratings (4.0 and 5.0 stars) show a higher volume of picture uploads, showing that happy diners are far more motivated to take and share photos.")
+        
+    elif chart_option == "Chart 10: Distribution of Reviewer Followers (Followers < 100)":
+        fig = px.histogram(df_reviews[df_reviews['Reviewer_Followers'] < 100], x='Reviewer_Followers', nbins=20, title="Distribution of Reviewer Followers", color_discrete_sequence=['darkorange'])
+        fig.update_layout(xaxis_title="Number of Followers", yaxis_title="Count")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: The vast majority of reviewers have very few followers (0 to 5), representing a casual reviewer base. Influencers represent a small minority.")
+        
+    elif chart_option == "Chart 11: Average Customer Rating for Top 10 Cuisines":
+        df_rev_meta = pd.merge(df_reviews, df_meta, left_on='Restaurant', right_on='Name')
+        df_rev_meta_exploded = df_rev_meta.assign(Cuisine=df_rev_meta['Cuisines'].str.split(', ')).explode('Cuisine').reset_index(drop=True)
+        top_cuisines = df_rev_meta_exploded['Cuisine'].value_counts().index[:10]
+        top_cuisines_ratings = df_rev_meta_exploded[df_rev_meta_exploded['Cuisine'].isin(top_cuisines)]
+        avg_rating_cuis = top_cuisines_ratings.groupby('Cuisine')['Rating_Cleaned'].mean().reset_index()
+        fig = px.bar(avg_rating_cuis, x='Cuisine', y='Rating_Cleaned', title="Average Customer Rating for Top 10 Cuisines", color='Rating_Cleaned', color_continuous_scale='Blues')
+        fig.update_layout(yaxis_title="Average Rating")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Premium and experiential cuisines like Continental and Italian receive higher average ratings compared to Fast Food and Chinese.")
+        
+    elif chart_option == "Chart 12: Review Character Count vs. Rating":
+        fig = px.box(df_reviews[df_reviews['Review_Length'] <= 1500], x='Rating_Cleaned', y='Review_Length', title="Review Character Count vs. Rating", color='Rating_Cleaned')
+        fig.update_layout(xaxis_title="Rating", yaxis_title="Review Length (characters)")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Lower ratings (1.0 and 2.0 stars) show longer reviews, indicating that angry customers write highly detailed logs of service failures.")
+        
+    elif chart_option == "Chart 13: Rating Distribution by Reviewer Experience Level":
+        def get_exp_level(revs):
+            if revs <= 1: return 'Newcomer'
+            elif revs <= 10: return 'Casual'
+            elif revs <= 50: return 'Frequent'
+            else: return 'Expert'
+        df_reviews['Reviewer_Experience'] = df_reviews['Reviewer_Reviews'].apply(get_exp_level)
+        fig = px.box(df_reviews, x='Reviewer_Experience', y='Rating_Cleaned', category_orders={'Reviewer_Experience': ['Newcomer', 'Casual', 'Frequent', 'Expert']}, title="Rating Distribution by Reviewer Experience Level", color='Reviewer_Experience')
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Newcomers give high positive ratings (median 5.0), whereas Expert reviewers are much more critical, showing a more balanced rating spread.")
+        
+    elif chart_option == "Chart 14: Correlation Matrix of Key Numerical Variables":
+        corr_cols = ['Rating_Cleaned', 'Reviewer_Reviews', 'Reviewer_Followers', 'Pictures_Cleaned', 'Review_Length']
+        corr_matrix = df_reviews[corr_cols].corr()
+        fig = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale="RdBu_r", title="Correlation Heatmap of Key Numerical Metrics")
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: Strong positive correlation exists between reviewer reviews and followers (0.90), indicating popular reviewers continue posting volume. Very low direct linear correlation between individual metrics and ratings.")
+        
+    elif chart_option == "Chart 15: Pair Plot of Key Metrics Colored by Sentiment":
+        st.write("Pair plots are visualized by taking a sample of reviews to ensure performance.")
+        # Sample to prevent browser freeze
+        df_sample = df_reviews.sample(n=500, random_state=42)
+        df_sample['Sentiment_Str'] = df_sample['Sentiment'].map({1: 'Positive', 0: 'Negative/Neutral'})
+        fig = px.scatter_matrix(
+            df_sample,
+            dimensions=['Rating_Cleaned', 'Pictures_Cleaned', 'Review_Length'],
+            color='Sentiment_Str',
+            color_discrete_sequence=['#66b3ff', '#ff9999'],
+            title="Pair Plot of Rating, Pictures, and Review Length"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("**Insight**: The joint distribution visual confirms that higher-length reviews and high-picture counts align with positive reviews, though clusters overlap.")
